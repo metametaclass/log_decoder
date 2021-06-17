@@ -1,0 +1,11 @@
+.idea/
+.vscode/
+.build_local/
+.coverage/
+ci/.logs
+.env
+.history/
+**/.data/
+docker-compose.yml
+.DS_Store
+*.exe
