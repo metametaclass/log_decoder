@@ -40,6 +40,21 @@ func main() {
 		originalWriter = originalFile
 	}
 
+	showI := func(name string, value interface{}) {
+		b, err := json.MarshalIndent(value, "", "  ")
+		if err != nil {
+			fmt.Fprintf(writer, "Marshal error %s\n", err)
+			return
+		}
+		fmt.Printf("%s: %s\n", name, string(b))
+		if writer != nil {
+			_, err := fmt.Fprintf(writer, "%s: %s\n", name, string(b))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "showI: error write %s", err)
+			}
+		}
+	}
+
 	skipFieldsMap := make(map[string]struct{})
 	if *skipFields != "" {
 		for _, key := range strings.Split(*skipFields, ",") {
@@ -60,11 +75,9 @@ func main() {
 		var linedata map[string]interface{}
 		err := json.Unmarshal(scanner.Bytes(), &linedata)
 		if err != nil {
-			fmt.Printf("Unmarshal error %s\n", err)
-			fmt.Printf("%s\n", scanner.Text())
+			fmt.Printf("Unmarshal error %s\n%s\n", err, scanner.Text())
 			if writer != nil {
-				fmt.Fprintf(writer, "Unmarshal error %s\n", err)
-				fmt.Fprintf(writer, "%s\n", scanner.Text())
+				fmt.Fprintf(writer, "Unmarshal error %s\n%s\n", err, scanner.Text())
 			}
 		} else {
 			type kv struct {
@@ -86,12 +99,21 @@ func main() {
 
 			}
 			for _, v := range sorted {
-				fmt.Printf("%s: %+v\n", v.k, v.v)
-				if writer != nil {
-					fmt.Fprintf(writer, "%s: %+v\n", v.k, v.v)
+				switch v.v.(type) {
+				case map[string]interface{}:
+					showI(v.k, v.v)
+				case []interface{}:
+					showI(v.k, v.v)
+				default:
+					fmt.Printf("%s: %+v\n", v.k, v.v)
+					if writer != nil {
+						_, err := fmt.Fprintf(writer, "%s: %+v\n", v.k, v.v)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "error write %s", err)
+						}
+					}
 				}
 			}
-
 		}
 		fmt.Println()
 		if writer != nil {
