@@ -20,7 +20,7 @@ func main() {
 
 	var writer io.Writer
 	if *filename != "" {
-		file, err := os.OpenFile(*filename, os.O_APPEND|os.O_CREATE, 0660)
+		file, err := os.OpenFile(*filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
 		if err != nil {
 			fmt.Printf("error open file %s %s:", *filename, err)
 			os.Exit(1)
@@ -31,7 +31,7 @@ func main() {
 
 	var originalWriter io.Writer
 	if *original != "" {
-		originalFile, err := os.OpenFile(*original, os.O_APPEND|os.O_CREATE, 0660)
+		originalFile, err := os.OpenFile(*original, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
 		if err != nil {
 			fmt.Printf("error open file %s %s:", *original, err)
 			os.Exit(1)
