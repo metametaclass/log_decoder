@@ -50,7 +50,7 @@ func main() {
 		if writer != nil {
 			_, err := fmt.Fprintf(writer, "%s: %s\n", name, string(b))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "showI: error write %s", err)
+				fmt.Fprintf(os.Stderr, "showI: error write %s\n", err)
 			}
 		}
 	}
@@ -109,7 +109,7 @@ func main() {
 					if writer != nil {
 						_, err := fmt.Fprintf(writer, "%s: %+v\n", v.k, v.v)
 						if err != nil {
-							fmt.Fprintf(os.Stderr, "error write %s", err)
+							fmt.Fprintf(os.Stderr, "error write %s\n", err)
 						}
 					}
 				}
