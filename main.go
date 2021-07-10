@@ -63,6 +63,8 @@ func main() {
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
+	buffer := make([]byte, 0, 262144)
+	scanner.Buffer(buffer, 524288)
 	for scanner.Scan() {
 		if originalWriter != nil {
 			_, err := originalWriter.Write(scanner.Bytes())
