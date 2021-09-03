@@ -65,6 +65,7 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	buffer := make([]byte, 0, 262144)
 	scanner.Buffer(buffer, 524288)
+	prevUnmarshalError := false
 	for scanner.Scan() {
 		if originalWriter != nil {
 			_, err := originalWriter.Write(scanner.Bytes())
@@ -77,11 +78,20 @@ func main() {
 		var linedata map[string]interface{}
 		err := json.Unmarshal(scanner.Bytes(), &linedata)
 		if err != nil {
-			fmt.Printf("Unmarshal error %s\n%s\n", err, scanner.Text())
-			if writer != nil {
-				fmt.Fprintf(writer, "Unmarshal error %s\n%s\n", err, scanner.Text())
+			if prevUnmarshalError {
+				fmt.Printf("%s", scanner.Text())
+				if writer != nil {
+					fmt.Fprintf(writer, "%s", scanner.Text())
+				}
+			} else {
+				fmt.Printf("Unmarshal error %s\n%s\n", err, scanner.Text())
+				if writer != nil {
+					fmt.Fprintf(writer, "Unmarshal error %s\n%s\n", err, scanner.Text())
+				}
 			}
+			prevUnmarshalError = true
 		} else {
+			prevUnmarshalError = false
 			type kv struct {
 				k string
 				v interface{}
