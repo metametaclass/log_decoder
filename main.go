@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -75,8 +76,7 @@ func main() {
 			fmt.Fprintf(originalWriter, "\n")
 		}
 
-		var linedata map[string]interface{}
-		err := json.Unmarshal(scanner.Bytes(), &linedata)
+		linedata, err := unmarshal(scanner.Bytes())
 		if err != nil {
 			if prevUnmarshalError {
 				fmt.Printf("%s", scanner.Text())
@@ -152,4 +152,14 @@ func isEmpty(v interface{}) bool {
 	default:
 		return false
 	}
+}
+
+func unmarshal(data []byte) (map[string]interface{}, error) {
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.UseNumber()
+	var linedata map[string]interface{}
+	if err := d.Decode(&linedata); err != nil {
+		return nil, err
+	}
+	return linedata, nil
 }
