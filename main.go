@@ -78,15 +78,16 @@ func main() {
 
 		linedata, err := unmarshal(scanner.Bytes())
 		if err != nil {
+			text := strings.Trim(scanner.Text(), "\r\n")
 			if prevUnmarshalError {
-				fmt.Printf("%s", scanner.Text())
+				fmt.Printf("%s\n", text)
 				if writer != nil {
-					fmt.Fprintf(writer, "%s", scanner.Text())
+					fmt.Fprintf(writer, "%s\n", text)
 				}
 			} else {
-				fmt.Printf("Unmarshal error %s\n%s\n", err, scanner.Text())
+				fmt.Printf("Unmarshal error %s\n%s\n", err, text)
 				if writer != nil {
-					fmt.Fprintf(writer, "Unmarshal error %s\n%s\n", err, scanner.Text())
+					fmt.Fprintf(writer, "Unmarshal error %s\n%s\n", err, text)
 				}
 			}
 			prevUnmarshalError = true
@@ -127,9 +128,11 @@ func main() {
 				}
 			}
 		}
-		fmt.Println()
-		if writer != nil {
-			fmt.Fprintf(writer, "\n\n")
+		if !prevUnmarshalError {
+			fmt.Println()
+			if writer != nil {
+				fmt.Fprintf(writer, "\n\n")
+			}
 		}
 	}
 }
