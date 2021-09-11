@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
@@ -12,12 +13,17 @@ import (
 	"strings"
 )
 
+type showFn func(name string, value interface{})
+
 func main() {
 	filename := flag.String("filename", "", "filename to write decoded log")
+	fixtureFile := flag.String("fixture", "", "filename to write request->response fixture")
 	original := flag.String("original", "", "filename to write original log")
 	skipFields := flag.String("skip", "", "list of fields to skip from dump")
 	skipEmpty := flag.Bool("skipempty", false, "skip fields with empty values")
 	flag.Parse()
+
+	fixture := newFixture()
 
 	var writer io.Writer
 	if *filename != "" {
@@ -75,6 +81,7 @@ func main() {
 			}
 			fmt.Fprintf(originalWriter, "\n")
 		}
+		fixture.processLine(scanner.Bytes())
 
 		linedata, err := unmarshal(scanner.Bytes())
 		if err != nil {
@@ -109,9 +116,11 @@ func main() {
 				sort.Slice(sorted, func(i, j int) bool {
 					return strings.Compare(sorted[i].k, sorted[j].k) < 0
 				})
-
 			}
 			for _, v := range sorted {
+				if v.k == "body_string" {
+					showXMLBody(showI, v.k, v.v)
+				}
 				switch v.v.(type) {
 				case map[string]interface{}:
 					showI(v.k, v.v)
@@ -135,6 +144,13 @@ func main() {
 			}
 		}
 	}
+
+	if *fixtureFile != "" {
+		err := fixture.SaveToFile(*fixtureFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "SaveToFile error %s\n", err)
+		}
+	}
 }
 
 func isEmpty(v interface{}) bool {
@@ -155,6 +171,26 @@ func isEmpty(v interface{}) bool {
 	default:
 		return false
 	}
+}
+
+func showXMLBody(show showFn, name string, value interface{}) {
+	str, ok := value.(string)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "invalid body string xml")
+		return
+	}
+	n, err := decodeXML(str)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid body string xml: %s", err)
+		return
+	}
+	show(name+"_xml_json", n)
+	data, err := xml.MarshalIndent(n, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "xml.MarshalIndent error: %s", err)
+		return
+	}
+	fmt.Printf("%s_xml: %s\n", name, string(data))
 }
 
 func unmarshal(data []byte) (map[string]interface{}, error) {
