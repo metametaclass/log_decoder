@@ -26,18 +26,21 @@ type logLine struct {
 type bodyWithHeaders struct {
 	Headers    http.Header `json:"headers"`
 	BodyString string      `json:"body_string,omitempty"`
-	BodyData   interface{} `json:"body_data"`
+	//BodyData   interface{} `json:"body_data"`
+	BodyData interface{} `json:"-"`
 }
 
 // requestResponse represents request-response pair for fixture
 type requestResponse struct {
-	RequestID  string          `json:"request_id"`
-	Url        string          `json:"url"`
-	Method     string          `json:"method"`
-	Request    bodyWithHeaders `json:"request"`
-	StatusCode int             `json:"status_code"`
-	Status     string          `json:"status"`
-	Response   bodyWithHeaders `json:"response"`
+	RequestID    string          `json:"request_id"`
+	Url          string          `json:"url"`
+	Method       string          `json:"method"`
+	Request      bodyWithHeaders `json:"request"`
+	SOAPRequest  *winrmRequest   `json:"soap_request"`
+	StatusCode   int             `json:"status_code"`
+	Status       string          `json:"status"`
+	Response     bodyWithHeaders `json:"response"`
+	SOAPResponse *winrmResponse  `json:"soap_response"`
 }
 
 // fixture is a list of request-response pairs
@@ -70,9 +73,14 @@ func (f *fixture) processLine(line []byte) {
 		bodyString := ""
 		n, err := decodeXML(l.BodyString)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "invalid xml request body in %+v\n", l)
+			fmt.Fprintf(os.Stderr, "error parse %s xml request body in %+v\n", err, l)
 			bodyString = l.BodyString
 		}
+		r, err := parseRequest(l.BodyString)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error parse %s winrm soap request body in %+v\n", err, l)
+		}
+
 		pair := &requestResponse{
 			RequestID: l.RequestID,
 			Url:       l.Url,
@@ -82,6 +90,7 @@ func (f *fixture) processLine(line []byte) {
 				BodyString: bodyString,
 				BodyData:   n,
 			},
+			SOAPRequest: r,
 		}
 		f.requestDict[l.RequestID] = pair
 		f.data = append(f.data, pair)
@@ -91,15 +100,20 @@ func (f *fixture) processLine(line []byte) {
 			fmt.Fprintf(os.Stderr, "not found request %s for %+v", l.RequestID, l)
 			return
 		}
-		bodyString := ""
 		n, err := decodeXML(l.BodyString)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "invalid xml response body in %+v\n", l)
-			bodyString = l.BodyString
 		}
+		r, err := parseResponse(l.BodyString)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error parse %s  winrm soap response body in %+v\n", err, l)
+		}
+		found.SOAPResponse = r
+		found.Status = l.Status
+		found.StatusCode = l.StatusCode
 		found.Response = bodyWithHeaders{
 			Headers:    l.Headers,
-			BodyString: bodyString,
+			BodyString: l.BodyString,
 			BodyData:   n,
 		}
 	}
