@@ -29,6 +29,7 @@ type winrmResponse struct {
 type responseStream struct {
 	Name      string `xml:",attr"`
 	CommandId string `xml:",attr"`
+	End       bool   `xml:",attr" json:"End,omitempty"`
 	Value     string `xml:",chardata"`
 }
 

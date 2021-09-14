@@ -6,19 +6,18 @@ import (
 )
 
 type Node struct {
-	XMLName xml.Name
-	Attrs   []xml.Attr `xml:"-" json:"attrs,omitempty"`
-	//Content  []byte     `xml:",innerxml" json:"-"`
-	Nodes    []Node `xml:",any" json:"nodes,omitempty"`
-	CharData string `xml:",chardata" json:"text,omitempty"`
+	XMLName    xml.Name
+	Attributes []xml.Attr `xml:",any,attr" json:"attrs,omitempty"`
+	Nodes      []Node     `xml:",any" json:"nodes,omitempty"`
+	CharData   string     `xml:",chardata" json:"text,omitempty"`
 }
 
-func (n *Node) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	n.Attrs = start.Attr
-	type node Node
+// func (n *Node) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+// 	//n.Attrs = start.Attr
+// 	type node Node
 
-	return d.DecodeElement((*node)(n), &start)
-}
+// 	return d.DecodeElement((*node)(n), &start)
+// }
 
 func walk(offset int, nodes []Node, f func(int, Node) bool) {
 	for _, n := range nodes {
