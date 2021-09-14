@@ -43,10 +43,18 @@ type requestResponse struct {
 	SOAPResponse *winrmResponse  `json:"soap_response"`
 }
 
+type commandResponse struct {
+	Command        string
+	Response       interface{} `json:"response,omitempty"`
+	ResponseString string      `json:"response_string,omitempty"`
+}
+
 // fixture is a list of request-response pairs
 type fixture struct {
-	data        []*requestResponse
-	requestDict map[string]*requestResponse
+	data             []*requestResponse
+	requestDict      map[string]*requestResponse
+	commandResponses []*commandResponse
+	currentCommand   string
 }
 
 func newFixture() *fixture {
@@ -94,6 +102,7 @@ func (f *fixture) processLine(line []byte) {
 		}
 		f.requestDict[l.RequestID] = pair
 		f.data = append(f.data, pair)
+		f.processRequest(r)
 	case "http_response":
 		found, ok := f.requestDict[l.RequestID]
 		if !ok {
@@ -116,6 +125,37 @@ func (f *fixture) processLine(line []byte) {
 			BodyString: l.BodyString,
 			BodyData:   n,
 		}
+		f.processResponse(r)
+	}
+}
+
+func (f *fixture) processRequest(r *winrmRequest) {
+	if r.Action == "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Command" {
+		if f.currentCommand != "" {
+			fmt.Fprintf(os.Stderr, "Incorrect http fixture state on %s: %s\n", r.CommandKey, f.currentCommand)
+		}
+		f.currentCommand = r.CommandKey
+	}
+	if r.Action == "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/Signal" {
+		f.currentCommand = ""
+	}
+}
+
+func (f *fixture) processResponse(r *winrmResponse) {
+	if r.Action == "http://schemas.microsoft.com/wbem/wsman/1/windows/shell/ReceiveResponse" {
+		if f.currentCommand == "" {
+			fmt.Fprintf(os.Stderr, "Incorrect http fixture state on %s\n", r.Action)
+			return
+		}
+		responseString := r.CommandStdout
+		if r.CommandStdoutJSON != nil {
+			responseString = ""
+		}
+		f.commandResponses = append(f.commandResponses, &commandResponse{
+			Command:        f.currentCommand,
+			Response:       r.CommandStdoutJSON,
+			ResponseString: responseString,
+		})
 	}
 }
 
@@ -128,5 +168,15 @@ func (f *fixture) SaveToFile(filename string) error {
 	if err != nil {
 		return errors.Wrap(err, "WriteFile failed")
 	}
+
+	data, err = json.MarshalIndent(f.commandResponses, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "MarshalIndent failed")
+	}
+	err = ioutil.WriteFile(filename+"_responses.json", data, 0660)
+	if err != nil {
+		return errors.Wrap(err, "WriteFile failed")
+	}
+
 	return nil
 }
