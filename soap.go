@@ -7,6 +7,8 @@ import (
 type winrmRequest struct {
 	Action      string `xml:"Header>Action"`
 	ResourceURI string `xml:"Header>ResourceURI" json:"ResourceURI,omitempty"`
+	MessageID   string `xml:"Header>MessageID" json:"MessageID,omitempty"`
+	RelatesTo   string `xml:"Header>RelatesTo" json:"RelatesTo,omitempty"`
 	Selector    string `xml:"Header>SelectorSet>Selector" json:"Selector,omitempty"`
 	//CommandLine string `xml:"Body>CommandLine>Command"`
 	Command       string `xml:"Body>CommandLine>Command" json:"Command,omitempty"`
