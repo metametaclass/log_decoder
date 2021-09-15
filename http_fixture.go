@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/pkg/errors"
 )
@@ -44,9 +45,12 @@ type requestResponse struct {
 }
 
 type commandResponse struct {
-	Command        string
+	Command        string      `json:"command"`
 	Response       interface{} `json:"response,omitempty"`
 	ResponseString string      `json:"response_string,omitempty"`
+	ResponseStderr string      `json:"response_stderr,omitempty"`
+	ExitCode       int         `json:"exit_code,omitempty"`
+	//ResponseMultiline []string    `json:"response_multiline,omitempty"`
 }
 
 // fixture is a list of request-response pairs
@@ -151,10 +155,17 @@ func (f *fixture) processResponse(r *winrmResponse) {
 		if r.CommandStdoutJSON != nil {
 			responseString = ""
 		}
+		exitCode, err := strconv.Atoi(r.ExitCode)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid exit code %s\n", r.ExitCode)
+		}
 		f.commandResponses = append(f.commandResponses, &commandResponse{
 			Command:        f.currentCommand,
 			Response:       r.CommandStdoutJSON,
 			ResponseString: responseString,
+			ResponseStderr: r.CommandStderr,
+			ExitCode:       exitCode,
+			//ResponseMultiline: strings.Split(responseString, "\n"),
 		})
 	}
 }

@@ -31,7 +31,7 @@ type winrmResponse struct {
 	ResourceURI       string           `xml:"Header>ResourceURI" json:"ResourceURI,omitempty"`
 	Selector          string           `xml:"Header>SelectorSet>Selector" json:"Selector,omitempty"`
 	Stream            []responseStream `xml:"Body>ReceiveResponse>Stream" json:"Stream,omitempty"`
-	ExitCode          string           `xml:"Body>CommandState>ExitCode" json:"ExitCode,omitempty"`
+	ExitCode          string           `xml:"Body>ReceiveResponse>CommandState>ExitCode" json:"ExitCode,omitempty"`
 	SignalResponse    string           `xml:"Body>SignalResponse" json:"SignalResponse,omitempty"`
 	ShellID           string           `xml:"Body>Shell>ShellId" json:"ShellId,omitempty"`
 	CommandStdout     string           `json:"command_stdout,omitempty"`
