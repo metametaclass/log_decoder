@@ -13,10 +13,11 @@ import (
 	"strings"
 )
 
-type showFn func(name string, value interface{})
+type showFn func(isErrorOrWarn bool, name string, value interface{})
 
 func main() {
 	filename := flag.String("filename", "", "filename to write decoded log")
+	errorFilename := flag.String("error", "", "filename to write decoded error log")
 	fixtureFile := flag.String("fixture", "", "filename to write request->response fixture")
 	original := flag.String("original", "", "filename to write original log")
 	skipFields := flag.String("skip", "", "list of fields to skip from dump")
@@ -36,6 +37,17 @@ func main() {
 		writer = file
 	}
 
+	var errorWriter io.Writer
+	if *errorFilename != "" {
+		file, err := os.OpenFile(*errorFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
+		if err != nil {
+			fmt.Printf("error open file %s %s:", *filename, err)
+			os.Exit(1)
+		}
+		defer file.Close()
+		errorWriter = file
+	}
+
 	var originalWriter io.Writer
 	if *original != "" {
 		originalFile, err := os.OpenFile(*original, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
@@ -47,7 +59,7 @@ func main() {
 		originalWriter = originalFile
 	}
 
-	showI := func(name string, value interface{}) {
+	showI := func(isErrorOrWarn bool, name string, value interface{}) {
 		b, err := json.MarshalIndent(value, "", "  ")
 		if err != nil {
 			fmt.Fprintf(writer, "Marshal error %s\n", err)
@@ -58,6 +70,28 @@ func main() {
 			_, err := fmt.Fprintf(writer, "%s: %s\n", name, string(b))
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "showI: error write %s\n", err)
+			}
+		}
+		if isErrorOrWarn && errorWriter != nil {
+			_, err := fmt.Fprintf(errorWriter, "%s: %s\n", name, string(b))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "showI: error write %s\n", err)
+			}
+		}
+	}
+
+	showV := func(isErrorOrWarn bool, name string, value interface{}) {
+		fmt.Printf("%s: %+v\n", name, value)
+		if writer != nil {
+			_, err := fmt.Fprintf(writer, "%s: %+v\n", name, value)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error write %s\n", err)
+			}
+		}
+		if isErrorOrWarn && errorWriter != nil {
+			_, err := fmt.Fprintf(errorWriter, "%s: %+v\n", name, value)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error write %s\n", err)
 			}
 		}
 	}
@@ -99,6 +133,13 @@ func main() {
 			}
 			prevUnmarshalError = true
 		} else {
+			var level string
+			levelIface := linedata["level"]
+			if levelIface != nil {
+				level, _ = levelIface.(string)
+			}
+			isErrorOrWarn := level == "error" || level == "warn"
+
 			prevUnmarshalError = false
 			type kv struct {
 				k string
@@ -123,17 +164,11 @@ func main() {
 				}
 				switch v.v.(type) {
 				case map[string]interface{}:
-					showI(v.k, v.v)
+					showI(isErrorOrWarn, v.k, v.v)
 				case []interface{}:
-					showI(v.k, v.v)
+					showI(isErrorOrWarn, v.k, v.v)
 				default:
-					fmt.Printf("%s: %+v\n", v.k, v.v)
-					if writer != nil {
-						_, err := fmt.Fprintf(writer, "%s: %+v\n", v.k, v.v)
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "error write %s\n", err)
-						}
-					}
+					showV(isErrorOrWarn, v.k, v.v)
 				}
 			}
 		}
@@ -184,7 +219,7 @@ func showXMLBody(show showFn, name string, value interface{}) {
 		fmt.Fprintf(os.Stderr, "invalid body string xml: %s", err)
 		return
 	}
-	show(name+"_xml_json", n)
+	show(false, name+"_xml_json", n)
 	data, err := xml.MarshalIndent(n, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "xml.MarshalIndent error: %s", err)
