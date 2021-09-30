@@ -117,6 +117,7 @@ func main() {
 		}
 		fixture.processLine(scanner.Bytes())
 
+		var isErrorOrWarn bool
 		linedata, err := unmarshal(scanner.Bytes())
 		if err != nil {
 			text := strings.Trim(scanner.Text(), "\r\n")
@@ -138,7 +139,7 @@ func main() {
 			if levelIface != nil {
 				level, _ = levelIface.(string)
 			}
-			isErrorOrWarn := level == "error" || level == "warn"
+			isErrorOrWarn = level == "error" || level == "warn"
 
 			prevUnmarshalError = false
 			type kv struct {
@@ -176,6 +177,9 @@ func main() {
 			fmt.Println()
 			if writer != nil {
 				fmt.Fprintf(writer, "\n\n")
+			}
+			if isErrorOrWarn && errorWriter != nil {
+				fmt.Fprintf(errorWriter, "\n\n")
 			}
 		}
 	}
