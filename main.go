@@ -81,15 +81,24 @@ func main() {
 	}
 
 	showV := func(isErrorOrWarn bool, name string, value interface{}) {
-		fmt.Printf("%s: %+v\n", name, value)
+		s := fmt.Sprintf("%+v", value)
+		// s = strings.TrimSpace(s)
+		// s = strings.Replace(s, "\n\n", "\\n\n", -1)
+		// s = strings.Replace(s, "\r\n\r\n", "\\r\\n\n", -1)
+		if strings.Contains(s, "\n") {
+			s = strings.Replace(s, "\n", "\n\t\t", -1)
+			s = fmt.Sprintf("| \n\t\t%s", s)
+		}
+
+		fmt.Printf("%s: %s\n", name, s)
 		if writer != nil {
-			_, err := fmt.Fprintf(writer, "%s: %+v\n", name, value)
+			_, err := fmt.Fprintf(writer, "%s: %s\n", name, s)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error write %s\n", err)
 			}
 		}
 		if isErrorOrWarn && errorWriter != nil {
-			_, err := fmt.Fprintf(errorWriter, "%s: %+v\n", name, value)
+			_, err := fmt.Fprintf(errorWriter, "%s: %s\n", name, s)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error write %s\n", err)
 			}
