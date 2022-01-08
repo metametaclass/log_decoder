@@ -15,6 +15,20 @@ import (
 
 type showFn func(isErrorOrWarn bool, name string, value interface{})
 
+var wellKnownFields = map[string]int{
+	"time":           1,
+	"caller":         2,
+	"level":          3,
+	"msg":            4,
+	"error":          5,
+	"error_verbose":  6,
+	"trace_id":       7,
+	"request_id":     8,
+	"int_request_id": 9,
+	"pid":            10,
+	"version":        11,
+}
+
 func main() {
 	filename := flag.String("filename", "", "filename to write decoded log")
 	errorFilename := flag.String("error", "", "filename to write decoded error log")
@@ -165,6 +179,17 @@ func main() {
 				}
 				sorted = append(sorted, kv{k, v})
 				sort.Slice(sorted, func(i, j int) bool {
+					wellKnown1, ok1 := wellKnownFields[sorted[i].k]
+					wellKnown2, ok2 := wellKnownFields[sorted[j].k]
+					if ok1 && ok2 {
+						return wellKnown1 < wellKnown2
+					}
+					if ok1 && !ok2 {
+						return true
+					}
+					if !ok1 && ok2 {
+						return false
+					}
 					return strings.Compare(sorted[i].k, sorted[j].k) < 0
 				})
 			}
