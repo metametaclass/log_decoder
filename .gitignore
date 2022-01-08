@@ -9,3 +9,5 @@ ci/.logs
 docker-compose.yml
 .DS_Store
 *.exe
+log_decoder
+
