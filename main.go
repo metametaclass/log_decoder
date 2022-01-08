@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-type showFn func(isErrorOrWarn bool, name string, value interface{})
+type showFn func(level logLevel, name string, value interface{})
 
 var wellKnownFields = map[string]int{
 	"time":           1,
@@ -71,7 +71,7 @@ func main() {
 		writer.WriteOriginal(scanner.Bytes())
 		fixture.processLine(scanner.Bytes())
 
-		var isErrorOrWarn bool
+		var logLevel logLevel
 		linedata, err := unmarshal(scanner.Bytes())
 		if err != nil {
 			text := strings.Trim(scanner.Text(), "\r\n")
@@ -87,7 +87,7 @@ func main() {
 			if levelIface != nil {
 				level, _ = levelIface.(string)
 			}
-			isErrorOrWarn = level == "error" || level == "warn"
+			logLevel := parseLogLevel(level)
 
 			prevUnmarshalError = false
 			type kv struct {
@@ -124,16 +124,16 @@ func main() {
 				}
 				switch v.v.(type) {
 				case map[string]interface{}:
-					writer.WriteIface(isErrorOrWarn, v.k, v.v)
+					writer.WriteIface(logLevel, v.k, v.v)
 				case []interface{}:
-					writer.WriteIface(isErrorOrWarn, v.k, v.v)
+					writer.WriteIface(logLevel, v.k, v.v)
 				default:
-					writer.WriteValue(isErrorOrWarn, v.k, v.v)
+					writer.WriteValue(logLevel, v.k, v.v)
 				}
 			}
 		}
 		if !prevUnmarshalError {
-			writer.WriteNewLine(isErrorOrWarn)
+			writer.WriteNewLine(logLevel)
 		}
 	}
 
@@ -176,7 +176,7 @@ func showXMLBody(show showFn, name string, value interface{}) {
 		fmt.Fprintf(os.Stderr, "invalid body string xml: %s", err)
 		return
 	}
-	show(false, name+"_xml_json", n)
+	show(logLevelInfo, name+"_xml_json", n)
 	data, err := xml.MarshalIndent(n, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "xml.MarshalIndent error: %s", err)

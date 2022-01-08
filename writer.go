@@ -123,7 +123,7 @@ func (w *logWriter) WriteTextAndError(comment, text string, err error) {
 	}
 }
 
-func (w *logWriter) WriteIface(isErrorOrWarn bool, name string, value interface{}) {
+func (w *logWriter) WriteIface(level logLevel, name string, value interface{}) {
 	b, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Marshal error %s\n", err)
@@ -136,7 +136,7 @@ func (w *logWriter) WriteIface(isErrorOrWarn bool, name string, value interface{
 			fmt.Fprintf(os.Stderr, "WriteIface: error write %s\n", err)
 		}
 	}
-	if isErrorOrWarn && w.errorWriter != nil {
+	if level.IsErrorOrWarn() && w.errorWriter != nil {
 		_, err := fmt.Fprintf(w.errorWriter, "%s: %s\n", name, string(b))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "WriteIface: error write %s\n", err)
@@ -144,7 +144,7 @@ func (w *logWriter) WriteIface(isErrorOrWarn bool, name string, value interface{
 	}
 }
 
-func (w *logWriter) WriteValue(isErrorOrWarn bool, name string, value interface{}) {
+func (w *logWriter) WriteValue(level logLevel, name string, value interface{}) {
 	s := fmt.Sprintf("%+v", value)
 	// s = strings.TrimSpace(s)
 	// s = strings.Replace(s, "\n\n", "\\n\n", -1)
@@ -161,7 +161,7 @@ func (w *logWriter) WriteValue(isErrorOrWarn bool, name string, value interface{
 			fmt.Fprintf(os.Stderr, "error write %s\n", err)
 		}
 	}
-	if isErrorOrWarn && w.errorWriter != nil {
+	if level.IsErrorOrWarn() && w.errorWriter != nil {
 		_, err := fmt.Fprintf(w.errorWriter, "%s: %s\n", name, s)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error write %s\n", err)
@@ -169,12 +169,12 @@ func (w *logWriter) WriteValue(isErrorOrWarn bool, name string, value interface{
 	}
 }
 
-func (w *logWriter) WriteNewLine(isErrorOrWarn bool) {
+func (w *logWriter) WriteNewLine(level logLevel) {
 	fmt.Println()
 	if w.decodedWriter != nil {
 		fmt.Fprintf(w.decodedWriter, "\n\n")
 	}
-	if isErrorOrWarn && w.errorWriter != nil {
+	if level.IsErrorOrWarn() && w.errorWriter != nil {
 		fmt.Fprintf(w.errorWriter, "\n\n")
 	}
 }
