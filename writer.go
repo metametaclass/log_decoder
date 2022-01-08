@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -12,6 +13,9 @@ import (
 
 // logWriter contains all output writers for decoded logs
 type logWriter struct {
+	needColors     bool
+	warnColor      string
+	resetColor     string
 	decodedWriter  io.WriteCloser
 	originalWriter io.WriteCloser
 	errorWriter    io.WriteCloser
@@ -34,7 +38,18 @@ func (w *logWriter) Close() error {
 }
 
 func newWriter() *logWriter {
-	return &logWriter{}
+	needColors := runtime.GOOS == "linux" || runtime.GOOS == "darwin"
+	warnColor := ""
+	resetColor := ""
+	if needColors {
+		warnColor = levelToColor(logLevelWarn)
+		resetColor = "\u001b[0m"
+	}
+	return &logWriter{
+		needColors: needColors,
+		warnColor:  warnColor,
+		resetColor: resetColor,
+	}
 }
 
 // openLogFile opens file and stores it to reference to interface
@@ -117,7 +132,7 @@ func (w *logWriter) WriteText(text string) {
 }
 
 func (w *logWriter) WriteTextAndError(comment, text string, err error) {
-	fmt.Printf("%s error %s\n%s\n", comment, err, text)
+	fmt.Printf("%s%s error %s\n%s%s\n", w.warnColor, comment, err, text, w.resetColor)
 	if w.decodedWriter != nil {
 		fmt.Fprintf(w.decodedWriter, "%s error %s\n%s\n", comment, err, text)
 	}
@@ -129,7 +144,11 @@ func (w *logWriter) WriteIface(level logLevel, name string, value interface{}) {
 		fmt.Fprintf(os.Stderr, "Marshal error %s\n", err)
 		return
 	}
-	fmt.Printf("%s: %s\n", name, string(b))
+	color := ""
+	if w.needColors {
+		color = levelToColor(level)
+	}
+	fmt.Printf("%s%s: %s%s\n", color, name, string(b), w.resetColor)
 	if w.decodedWriter != nil {
 		_, err := fmt.Fprintf(w.decodedWriter, "%s: %s\n", name, string(b))
 		if err != nil {
@@ -154,7 +173,11 @@ func (w *logWriter) WriteValue(level logLevel, name string, value interface{}) {
 		s = fmt.Sprintf("| \n\t\t%s", s)
 	}
 
-	fmt.Printf("%s: %s\n", name, s)
+	color := ""
+	if w.needColors {
+		color = levelToColor(level)
+	}
+	fmt.Printf("%s%s: %s%s\n", color, name, s, w.resetColor)
 	if w.decodedWriter != nil {
 		_, err := fmt.Fprintf(w.decodedWriter, "%s: %s\n", name, s)
 		if err != nil {

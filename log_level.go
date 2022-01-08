@@ -28,3 +28,18 @@ func parseLogLevel(level string) logLevel {
 		return logLevelWarn
 	}
 }
+
+func levelToColor(level logLevel) string {
+	switch level {
+	case logLevelDebug:
+		return "\u001b[32m" // green
+	case logLevelInfo:
+		return "" // no color
+	case logLevelWarn:
+		return "\u001b[33m" // yellow
+	case logLevelError:
+		return "\u001b[31m" // red
+	default:
+		return "\u001b[36m" // cyan
+	}
+}
