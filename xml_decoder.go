@@ -19,13 +19,13 @@ type Node struct {
 // 	return d.DecodeElement((*node)(n), &start)
 // }
 
-func walk(offset int, nodes []Node, f func(int, Node) bool) {
-	for _, n := range nodes {
-		if f(offset, n) {
-			walk(offset+2, n.Nodes, f)
-		}
-	}
-}
+// func walk(offset int, nodes []Node, f func(int, Node) bool) {
+// 	for _, n := range nodes {
+// 		if f(offset, n) {
+// 			walk(offset+2, n.Nodes, f)
+// 		}
+// 	}
+// }
 
 func decodeXML(data string) (*Node, error) {
 	dec := xml.NewDecoder(strings.NewReader(data))

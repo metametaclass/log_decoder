@@ -7,7 +7,6 @@ import (
 	"encoding/xml"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"sort"
 	"strings"
@@ -34,88 +33,26 @@ func main() {
 	errorFilename := flag.String("error", "", "filename to write decoded error log")
 	fixtureFile := flag.String("fixture", "", "filename to write request->response fixture")
 	original := flag.String("original", "", "filename to write original log")
+	prefix := flag.String("prefix", "", "filename prefix for all logs")
 	skipFields := flag.String("skip", "", "list of fields to skip from dump")
 	skipEmpty := flag.Bool("skipempty", false, "skip fields with empty values")
 	flag.Parse()
 
 	fixture := newFixture()
+	writer := newWriter()
+	defer writer.Close()
 
-	var writer io.Writer
-	if *filename != "" {
-		file, err := os.OpenFile(*filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
+	if *prefix != "" {
+		err := writer.OpenWithPrefix(*prefix)
 		if err != nil {
-			fmt.Printf("error open file %s %s:", *filename, err)
+			fmt.Printf("OpenWithPrefix error %s %s:", *prefix, err)
 			os.Exit(1)
 		}
-		defer file.Close()
-		writer = file
-	}
-
-	var errorWriter io.Writer
-	if *errorFilename != "" {
-		file, err := os.OpenFile(*errorFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
+	} else {
+		err := writer.OpenAll(*filename, *errorFilename, *original)
 		if err != nil {
-			fmt.Printf("error open file %s %s:", *filename, err)
+			fmt.Printf("OpenAll error %s %s:", *filename, err)
 			os.Exit(1)
-		}
-		defer file.Close()
-		errorWriter = file
-	}
-
-	var originalWriter io.Writer
-	if *original != "" {
-		originalFile, err := os.OpenFile(*original, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
-		if err != nil {
-			fmt.Printf("error open file %s %s:", *original, err)
-			os.Exit(1)
-		}
-		defer originalFile.Close()
-		originalWriter = originalFile
-	}
-
-	showI := func(isErrorOrWarn bool, name string, value interface{}) {
-		b, err := json.MarshalIndent(value, "", "  ")
-		if err != nil {
-			fmt.Fprintf(writer, "Marshal error %s\n", err)
-			return
-		}
-		fmt.Printf("%s: %s\n", name, string(b))
-		if writer != nil {
-			_, err := fmt.Fprintf(writer, "%s: %s\n", name, string(b))
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "showI: error write %s\n", err)
-			}
-		}
-		if isErrorOrWarn && errorWriter != nil {
-			_, err := fmt.Fprintf(errorWriter, "%s: %s\n", name, string(b))
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "showI: error write %s\n", err)
-			}
-		}
-	}
-
-	showV := func(isErrorOrWarn bool, name string, value interface{}) {
-		s := fmt.Sprintf("%+v", value)
-		// s = strings.TrimSpace(s)
-		// s = strings.Replace(s, "\n\n", "\\n\n", -1)
-		// s = strings.Replace(s, "\r\n\r\n", "\\r\\n\n", -1)
-		if strings.Contains(s, "\n") {
-			s = strings.Replace(s, "\n", "\n\t\t", -1)
-			s = fmt.Sprintf("| \n\t\t%s", s)
-		}
-
-		fmt.Printf("%s: %s\n", name, s)
-		if writer != nil {
-			_, err := fmt.Fprintf(writer, "%s: %s\n", name, s)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error write %s\n", err)
-			}
-		}
-		if isErrorOrWarn && errorWriter != nil {
-			_, err := fmt.Fprintf(errorWriter, "%s: %s\n", name, s)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error write %s\n", err)
-			}
 		}
 	}
 
@@ -131,13 +68,7 @@ func main() {
 	scanner.Buffer(buffer, 524288)
 	prevUnmarshalError := false
 	for scanner.Scan() {
-		if originalWriter != nil {
-			_, err := originalWriter.Write(scanner.Bytes())
-			if err != nil {
-				fmt.Printf("originalWriter.Write error %s\n", err)
-			}
-			fmt.Fprintf(originalWriter, "\n")
-		}
+		writer.WriteOriginal(scanner.Bytes())
 		fixture.processLine(scanner.Bytes())
 
 		var isErrorOrWarn bool
@@ -145,15 +76,9 @@ func main() {
 		if err != nil {
 			text := strings.Trim(scanner.Text(), "\r\n")
 			if prevUnmarshalError {
-				fmt.Printf("%s\n", text)
-				if writer != nil {
-					fmt.Fprintf(writer, "%s\n", text)
-				}
+				writer.WriteText(text)
 			} else {
-				fmt.Printf("Unmarshal error %s\n%s\n", err, text)
-				if writer != nil {
-					fmt.Fprintf(writer, "Unmarshal error %s\n%s\n", err, text)
-				}
+				writer.WriteTextAndError("Unmarshal", text, err)
 			}
 			prevUnmarshalError = true
 		} else {
@@ -195,26 +120,20 @@ func main() {
 			}
 			for _, v := range sorted {
 				if v.k == "body_string" {
-					showXMLBody(showI, v.k, v.v)
+					showXMLBody(writer.WriteIface, v.k, v.v)
 				}
 				switch v.v.(type) {
 				case map[string]interface{}:
-					showI(isErrorOrWarn, v.k, v.v)
+					writer.WriteIface(isErrorOrWarn, v.k, v.v)
 				case []interface{}:
-					showI(isErrorOrWarn, v.k, v.v)
+					writer.WriteIface(isErrorOrWarn, v.k, v.v)
 				default:
-					showV(isErrorOrWarn, v.k, v.v)
+					writer.WriteValue(isErrorOrWarn, v.k, v.v)
 				}
 			}
 		}
 		if !prevUnmarshalError {
-			fmt.Println()
-			if writer != nil {
-				fmt.Fprintf(writer, "\n\n")
-			}
-			if isErrorOrWarn && errorWriter != nil {
-				fmt.Fprintf(errorWriter, "\n\n")
-			}
+			writer.WriteNewLine(isErrorOrWarn)
 		}
 	}
 
