@@ -97,15 +97,15 @@ func (w *logWriter) OpenAll(decodedFilename, errorFilename, originalFilename str
 }
 
 func (w *logWriter) OpenWithPrefix(prefix string) error {
-	err := w.OpenDecoded(fmt.Sprintf("%s_log_decoded.txt", prefix))
+	err := w.OpenDecoded(fmt.Sprintf("%s_log_decoded.log", prefix))
 	if err != nil {
 		return err
 	}
-	err = w.OpenError(fmt.Sprintf("%s_log_error.txt", prefix))
+	err = w.OpenError(fmt.Sprintf("%s_log_error.log", prefix))
 	if err != nil {
 		return err
 	}
-	err = w.OpenOriginal(fmt.Sprintf("%s_log_original.txt", prefix))
+	err = w.OpenOriginal(fmt.Sprintf("%s_log_original.log", prefix))
 	if err != nil {
 		return err
 	}
