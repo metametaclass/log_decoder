@@ -65,7 +65,7 @@ func main() {
 
 	scanner := bufio.NewScanner(os.Stdin)
 	buffer := make([]byte, 0, 262144)
-	scanner.Buffer(buffer, 524288)
+	scanner.Buffer(buffer, 32*1048576)
 	prevUnmarshalError := false
 	for scanner.Scan() {
 		writer.WriteOriginal(scanner.Bytes())
@@ -135,6 +135,9 @@ func main() {
 		if !prevUnmarshalError {
 			writer.WriteNewLine(logLevel)
 		}
+	}
+	if scanner.Err() != nil {
+		writer.WriteTextAndError("scanner error", "", scanner.Err())
 	}
 
 	if *fixtureFile != "" {
