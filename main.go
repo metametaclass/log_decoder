@@ -87,7 +87,7 @@ func main() {
 			if levelIface != nil {
 				level, _ = levelIface.(string)
 			}
-			logLevel := parseLogLevel(level)
+			logLevel = parseLogLevel(level)
 
 			prevUnmarshalError = false
 			type kv struct {
