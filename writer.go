@@ -13,18 +13,23 @@ import (
 
 // logWriter contains all output writers for decoded logs
 type logWriter struct {
-	needColors     bool
-	warnColor      string
-	resetColor     string
-	decodedWriter  io.WriteCloser
-	originalWriter io.WriteCloser
-	errorWriter    io.WriteCloser
+	needColors        bool
+	warnColor         string
+	resetColor        string
+	decodedWriter     io.WriteCloser
+	decodedInfoWriter io.WriteCloser
+	originalWriter    io.WriteCloser
+	errorWriter       io.WriteCloser
 }
 
 func (w *logWriter) Close() error {
 	var errDecodedWriter error
 	if w.decodedWriter != nil {
 		errDecodedWriter = w.decodedWriter.Close()
+	}
+	var errDecodedInfoWriter error
+	if w.decodedInfoWriter != nil {
+		errDecodedInfoWriter = w.decodedInfoWriter.Close()
 	}
 	var errOriginalWriter error
 	if w.originalWriter != nil {
@@ -34,7 +39,7 @@ func (w *logWriter) Close() error {
 	if w.errorWriter != nil {
 		errErrorWriter = w.errorWriter.Close()
 	}
-	return mergeErrors(errDecodedWriter, errOriginalWriter, errErrorWriter)
+	return mergeErrors(errDecodedWriter, errDecodedInfoWriter, errOriginalWriter, errErrorWriter)
 }
 
 func newWriter() *logWriter {
@@ -66,6 +71,10 @@ func (w *logWriter) OpenDecoded(filename string) error {
 	return openLogFile(filename, &w.decodedWriter)
 }
 
+func (w *logWriter) OpenDecodedInfo(filename string) error {
+	return openLogFile(filename, &w.decodedInfoWriter)
+}
+
 func (w *logWriter) OpenError(filename string) error {
 	return openLogFile(filename, &w.errorWriter)
 }
@@ -74,9 +83,15 @@ func (w *logWriter) OpenOriginal(filename string) error {
 	return openLogFile(filename, &w.originalWriter)
 }
 
-func (w *logWriter) OpenAll(decodedFilename, errorFilename, originalFilename string) error {
+func (w *logWriter) OpenAll(decodedFilename, decodedInfoFilename, errorFilename, originalFilename string) error {
 	if decodedFilename != "" {
 		err := w.OpenDecoded(decodedFilename)
+		if err != nil {
+			return err
+		}
+	}
+	if decodedInfoFilename != "" {
+		err := w.OpenDecoded(decodedInfoFilename)
 		if err != nil {
 			return err
 		}
@@ -98,6 +113,10 @@ func (w *logWriter) OpenAll(decodedFilename, errorFilename, originalFilename str
 
 func (w *logWriter) OpenWithPrefix(prefix string) error {
 	err := w.OpenDecoded(fmt.Sprintf("%s_log_decoded.log", prefix))
+	if err != nil {
+		return err
+	}
+	err = w.OpenDecodedInfo(fmt.Sprintf("%s_log_info.log", prefix))
 	if err != nil {
 		return err
 	}
@@ -155,6 +174,12 @@ func (w *logWriter) WriteIface(level logLevel, name string, value interface{}) {
 			fmt.Fprintf(os.Stderr, "WriteIface: error write %s\n", err)
 		}
 	}
+	if level.IsInfoOrHigher() && w.decodedInfoWriter != nil {
+		_, err := fmt.Fprintf(w.decodedInfoWriter, "%s: %s\n", name, string(b))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WriteIface: error write %s\n", err)
+		}
+	}
 	if level.IsErrorOrWarn() && w.errorWriter != nil {
 		_, err := fmt.Fprintf(w.errorWriter, "%s: %s\n", name, string(b))
 		if err != nil {
@@ -184,6 +209,12 @@ func (w *logWriter) WriteValue(level logLevel, name string, value interface{}) {
 			fmt.Fprintf(os.Stderr, "error write %s\n", err)
 		}
 	}
+	if level.IsInfoOrHigher() && w.decodedInfoWriter != nil {
+		_, err := fmt.Fprintf(w.decodedInfoWriter, "%s: %s\n", name, s)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error write %s\n", err)
+		}
+	}
 	if level.IsErrorOrWarn() && w.errorWriter != nil {
 		_, err := fmt.Fprintf(w.errorWriter, "%s: %s\n", name, s)
 		if err != nil {
@@ -196,6 +227,9 @@ func (w *logWriter) WriteNewLine(level logLevel) {
 	fmt.Println()
 	if w.decodedWriter != nil {
 		fmt.Fprintf(w.decodedWriter, "\n\n")
+	}
+	if level.IsInfoOrHigher() && w.decodedInfoWriter != nil {
+		fmt.Fprintf(w.decodedInfoWriter, "\n\n")
 	}
 	if level.IsErrorOrWarn() && w.errorWriter != nil {
 		fmt.Fprintf(w.errorWriter, "\n\n")

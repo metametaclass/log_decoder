@@ -30,6 +30,7 @@ var wellKnownFields = map[string]int{
 
 func main() {
 	filename := flag.String("filename", "", "filename to write decoded log")
+	infoFilename := flag.String("info", "", "filename to write decoded info and higher log")
 	errorFilename := flag.String("error", "", "filename to write decoded error log")
 	fixtureFile := flag.String("fixture", "", "filename to write request->response fixture")
 	original := flag.String("original", "", "filename to write original log")
@@ -49,7 +50,7 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		err := writer.OpenAll(*filename, *errorFilename, *original)
+		err := writer.OpenAll(*filename, *infoFilename, *errorFilename, *original)
 		if err != nil {
 			fmt.Printf("OpenAll error %s %s:", *filename, err)
 			os.Exit(1)

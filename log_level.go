@@ -13,6 +13,10 @@ func (ll logLevel) IsErrorOrWarn() bool {
 	return ll > logLevelInfo
 }
 
+func (ll logLevel) IsInfoOrHigher() bool {
+	return ll >= logLevelInfo
+}
+
 func parseLogLevel(level string) logLevel {
 	switch level {
 	case "debug":
