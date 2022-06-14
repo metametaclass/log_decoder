@@ -1,4 +1,4 @@
-module git.acronis.com/utils/log_decoder
+module github.com/metametaclass/log_decoder
 
 go 1.15
 
