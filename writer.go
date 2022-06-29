@@ -16,6 +16,7 @@ type logWriter struct {
 	needColors        bool
 	warnColor         string
 	resetColor        string
+	hideDebug         bool
 	decodedWriter     io.WriteCloser
 	decodedInfoWriter io.WriteCloser
 	originalWriter    io.WriteCloser
@@ -42,7 +43,7 @@ func (w *logWriter) Close() error {
 	return mergeErrors(errDecodedWriter, errDecodedInfoWriter, errOriginalWriter, errErrorWriter)
 }
 
-func newWriter() *logWriter {
+func newWriter(hideDebug bool) *logWriter {
 	needColors := runtime.GOOS == "linux" || runtime.GOOS == "darwin"
 	warnColor := ""
 	resetColor := ""
@@ -54,6 +55,7 @@ func newWriter() *logWriter {
 		needColors: needColors,
 		warnColor:  warnColor,
 		resetColor: resetColor,
+		hideDebug:  hideDebug,
 	}
 }
 
@@ -163,11 +165,13 @@ func (w *logWriter) WriteIface(level logLevel, name string, value interface{}) {
 		fmt.Fprintf(os.Stderr, "Marshal error %s\n", err)
 		return
 	}
-	color := ""
-	if w.needColors {
-		color = levelToColor(level)
+	if !w.hideDebug || level.IsInfoOrHigher() {
+		color := ""
+		if w.needColors {
+			color = levelToColor(level)
+		}
+		fmt.Printf("%s%s: %s%s\n", color, name, string(b), w.resetColor)
 	}
-	fmt.Printf("%s%s: %s%s\n", color, name, string(b), w.resetColor)
 	if w.decodedWriter != nil {
 		_, err := fmt.Fprintf(w.decodedWriter, "%s: %s\n", name, string(b))
 		if err != nil {
@@ -198,11 +202,14 @@ func (w *logWriter) WriteValue(level logLevel, name string, value interface{}) {
 		s = fmt.Sprintf("| \n\t\t%s", s)
 	}
 
-	color := ""
-	if w.needColors {
-		color = levelToColor(level)
+	if !w.hideDebug || level.IsInfoOrHigher() {
+		color := ""
+		if w.needColors {
+			color = levelToColor(level)
+		}
+
+		fmt.Printf("%s%s: %s%s\n", color, name, s, w.resetColor)
 	}
-	fmt.Printf("%s%s: %s%s\n", color, name, s, w.resetColor)
 	if w.decodedWriter != nil {
 		_, err := fmt.Fprintf(w.decodedWriter, "%s: %s\n", name, s)
 		if err != nil {
@@ -224,7 +231,9 @@ func (w *logWriter) WriteValue(level logLevel, name string, value interface{}) {
 }
 
 func (w *logWriter) WriteNewLine(level logLevel) {
-	fmt.Println()
+	if !w.hideDebug || level.IsInfoOrHigher() {
+		fmt.Println()
+	}
 	if w.decodedWriter != nil {
 		fmt.Fprintf(w.decodedWriter, "\n\n")
 	}

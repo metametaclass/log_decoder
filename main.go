@@ -37,10 +37,11 @@ func main() {
 	prefix := flag.String("prefix", "", "filename prefix for all logs")
 	skipFields := flag.String("skip", "", "list of fields to skip from dump")
 	skipEmpty := flag.Bool("skipempty", false, "skip fields with empty values")
+	hideDebug := flag.Bool("hidedebug", false, "hide debug output from stdout")
 	flag.Parse()
 
 	fixture := newFixture()
-	writer := newWriter()
+	writer := newWriter(*hideDebug)
 	defer writer.Close()
 
 	if *prefix != "" {
