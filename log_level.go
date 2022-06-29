@@ -3,7 +3,8 @@ package main
 type logLevel int
 
 const (
-	logLevelDebug logLevel = iota
+	logLevelTrace logLevel = iota
+	logLevelDebug
 	logLevelInfo
 	logLevelWarn
 	logLevelError
@@ -19,6 +20,8 @@ func (ll logLevel) IsInfoOrHigher() bool {
 
 func parseLogLevel(level string) logLevel {
 	switch level {
+	case "trace":
+		return logLevelTrace
 	case "debug":
 		return logLevelDebug
 	case "info":
@@ -35,7 +38,7 @@ func parseLogLevel(level string) logLevel {
 
 func levelToColor(level logLevel) string {
 	switch level {
-	case logLevelDebug:
+	case logLevelTrace, logLevelDebug:
 		return "\u001b[32m" // green
 	case logLevelInfo:
 		return "" // no color
