@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/trace"
 	"sort"
 	"strings"
 )
@@ -38,7 +39,27 @@ func main() {
 	skipFields := flag.String("skip", "", "list of fields to skip from dump")
 	skipEmpty := flag.Bool("skipempty", false, "skip fields with empty values")
 	hideDebug := flag.Bool("hidedebug", false, "hide debug output from stdout")
+	traceFile := flag.String("trace", "", "output trace")
 	flag.Parse()
+
+	if *traceFile != "" {
+		f, err := os.Create(*traceFile)
+		if err != nil {
+			fmt.Printf("Create trace file error %s %s:", *traceFile, err)
+			os.Exit(1)
+		}
+		defer func() {
+			if err := f.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to close trace file: %v", err)
+			}
+		}()
+
+		if err := trace.Start(f); err != nil {
+			fmt.Printf("trace.Start failed %s %s:", *traceFile, err)
+			os.Exit(1)
+		}
+		defer trace.Stop()
+	}
 
 	fixture := newFixture()
 	writer := newWriter(*hideDebug)
