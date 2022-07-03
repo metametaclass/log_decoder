@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -59,13 +60,47 @@ func newWriter(hideDebug bool) *logWriter {
 	}
 }
 
+// bufferedWriterCloser wraps bufio.Writer with Closer for flushing buffers
+type bufferedWriterCloser struct {
+	file *os.File
+	wr   *bufio.Writer
+}
+
+func newBufferedWriterCloser(file *os.File) *bufferedWriterCloser {
+	return &bufferedWriterCloser{
+		file: file,
+		wr:   bufio.NewWriterSize(file, 65536),
+	}
+}
+
+func (b *bufferedWriterCloser) Write(p []byte) (int, error) {
+	return b.wr.Write(p)
+}
+
+func (b *bufferedWriterCloser) Close() error {
+	err1 := b.wr.Flush()
+	err2 := b.file.Close()
+	s := ""
+	if err1 != nil {
+		s = err1.Error()
+	}
+	if err2 != nil {
+		s = s + " " + err2.Error()
+	}
+	if err1 != nil || err2 != nil {
+		return errors.New(s)
+	}
+	return nil
+}
+
 // openLogFile opens file and stores it to reference to interface
 func openLogFile(filename string, fileRef *io.WriteCloser) error {
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
 	if err != nil {
 		return errors.Wrapf(err, "OpenFile %s failed", filename)
 	}
-	*fileRef = file
+
+	*fileRef = newBufferedWriterCloser(file)
 	return nil
 }
 
