@@ -39,6 +39,7 @@ func main() {
 	skipFields := flag.String("skip", "", "list of fields to skip from dump")
 	skipEmpty := flag.Bool("skipempty", false, "skip fields with empty values")
 	hideDebug := flag.Bool("hidedebug", false, "hide debug output from stdout")
+	bufferSize := flag.Int("buffersize", 65536, "output writer buffer size, 0 - not buffered")
 	traceFile := flag.String("trace", "", "output trace")
 	flag.Parse()
 
@@ -63,6 +64,7 @@ func main() {
 
 	fixture := newFixture()
 	writer := newWriter(*hideDebug)
+	writer.bufferSize = *bufferSize
 	defer writer.Close()
 
 	if *prefix != "" {

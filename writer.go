@@ -18,6 +18,7 @@ type logWriter struct {
 	warnColor         string
 	resetColor        string
 	hideDebug         bool
+	bufferSize        int
 	decodedWriter     io.WriteCloser
 	decodedInfoWriter io.WriteCloser
 	originalWriter    io.WriteCloser
@@ -66,10 +67,13 @@ type bufferedWriterCloser struct {
 	wr   *bufio.Writer
 }
 
-func newBufferedWriterCloser(file *os.File) *bufferedWriterCloser {
+func newBufferedWriterCloser(file *os.File, bufferSize int) io.WriteCloser {
+	if bufferSize <= 0 {
+		return file
+	}
 	return &bufferedWriterCloser{
 		file: file,
-		wr:   bufio.NewWriterSize(file, 65536),
+		wr:   bufio.NewWriterSize(file, bufferSize),
 	}
 }
 
@@ -94,30 +98,30 @@ func (b *bufferedWriterCloser) Close() error {
 }
 
 // openLogFile opens file and stores it to reference to interface
-func openLogFile(filename string, fileRef *io.WriteCloser) error {
+func openLogFile(filename string, bufferSize int, fileRef *io.WriteCloser) error {
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0660)
 	if err != nil {
 		return errors.Wrapf(err, "OpenFile %s failed", filename)
 	}
 
-	*fileRef = newBufferedWriterCloser(file)
+	*fileRef = newBufferedWriterCloser(file, bufferSize)
 	return nil
 }
 
 func (w *logWriter) OpenDecoded(filename string) error {
-	return openLogFile(filename, &w.decodedWriter)
+	return openLogFile(filename, w.bufferSize, &w.decodedWriter)
 }
 
 func (w *logWriter) OpenDecodedInfo(filename string) error {
-	return openLogFile(filename, &w.decodedInfoWriter)
+	return openLogFile(filename, w.bufferSize, &w.decodedInfoWriter)
 }
 
 func (w *logWriter) OpenError(filename string) error {
-	return openLogFile(filename, &w.errorWriter)
+	return openLogFile(filename, w.bufferSize, &w.errorWriter)
 }
 
 func (w *logWriter) OpenOriginal(filename string) error {
-	return openLogFile(filename, &w.originalWriter)
+	return openLogFile(filename, w.bufferSize, &w.originalWriter)
 }
 
 func (w *logWriter) OpenAll(decodedFilename, decodedInfoFilename, errorFilename, originalFilename string) error {
