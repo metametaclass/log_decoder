@@ -38,6 +38,7 @@ func main() {
 	prefix := flag.String("prefix", "", "filename prefix for all logs")
 	skipFields := flag.String("skip", "", "list of fields to skip from dump")
 	skipEmpty := flag.Bool("skipempty", false, "skip fields with empty values")
+	writerNameField := flag.String("writername", "", "use field value as writer name")
 	hideDebug := flag.Bool("hidedebug", false, "hide debug output from stdout")
 	bufferSize := flag.Int("buffersize", 65536, "output writer buffer size, 0 - not buffered")
 	traceFile := flag.String("trace", "", "output trace")
@@ -63,23 +64,40 @@ func main() {
 	}
 
 	fixture := newFixture()
-	writer := newWriter(*hideDebug)
-	writer.bufferSize = *bufferSize
-	defer writer.Close()
+	writers := make(map[string]*logWriter)
+	defer func() {
+		for _, w := range writers {
+			w.Close()
+		}
+	}()
 
-	if *prefix != "" {
-		err := writer.OpenWithPrefix(*prefix)
-		if err != nil {
-			fmt.Printf("OpenWithPrefix error %s %s:", *prefix, err)
-			os.Exit(1)
+	createWriter := func(name string) *logWriter {
+		writer, ok := writers[name]
+		if ok {
+			return writer
 		}
-	} else {
-		err := writer.OpenAll(*filename, *infoFilename, *errorFilename, *original)
-		if err != nil {
-			fmt.Printf("OpenAll error %s %s:", *filename, err)
-			os.Exit(1)
+		writer = newWriter(*hideDebug)
+		writer.bufferSize = *bufferSize
+		if *prefix != "" {
+			err := writer.OpenWithPrefix(*prefix + "_" + name)
+			if err != nil {
+				fmt.Printf("OpenWithPrefix error %s %s:", *prefix, err)
+				os.Exit(1)
+			}
+		} else {
+			err := writer.OpenAll(*filename+"_"+name, *infoFilename+"_"+name, *errorFilename+"_"+name, *original+"_"+name)
+			if err != nil {
+				fmt.Printf("OpenAll error %s %s:", *filename, err)
+				os.Exit(1)
+			}
 		}
+
+		writers[name] = writer
+		return writer
 	}
+	/*writer := newWriter(*hideDebug)
+	writer.bufferSize = *bufferSize
+	defer writer.Close()*/
 
 	skipFieldsMap := make(map[string]struct{})
 	if *skipFields != "" {
@@ -93,12 +111,14 @@ func main() {
 	scanner.Buffer(buffer, 32*1048576)
 	prevUnmarshalError := false
 	for scanner.Scan() {
-		writer.WriteOriginal(scanner.Bytes())
+		var writer *logWriter
 		fixture.processLine(scanner.Bytes())
 
 		var logLevel logLevel
 		linedata, err := unmarshal(scanner.Bytes())
 		if err != nil {
+			writer := createWriter("error")
+			writer.WriteOriginal(scanner.Bytes())
 			text := strings.Trim(scanner.Text(), "\r\n")
 			if prevUnmarshalError {
 				writer.WriteText(text)
@@ -113,6 +133,18 @@ func main() {
 				level, _ = levelIface.(string)
 			}
 			logLevel = parseLogLevel(level)
+
+			if writerNameField != nil && *writerNameField != "" {
+				var writerNameFieldValue string
+				writerNameFieldValueIface := linedata[*writerNameField]
+				if writerNameFieldValueIface != nil {
+					writerNameFieldValue, _ = writerNameFieldValueIface.(string)
+				}
+				writer = createWriter(writerNameFieldValue)
+			} else {
+				writer = createWriter("")
+			}
+			writer.WriteOriginal(scanner.Bytes())
 
 			prevUnmarshalError = false
 			type kv struct {
@@ -143,6 +175,7 @@ func main() {
 					return strings.Compare(sorted[i].k, sorted[j].k) < 0
 				})
 			}
+
 			for _, v := range sorted {
 				if v.k == "body_string" {
 					showXMLBody(writer.WriteIface, v.k, v.v)
@@ -157,11 +190,12 @@ func main() {
 				}
 			}
 		}
-		if !prevUnmarshalError {
+		if !prevUnmarshalError && writer != nil {
 			writer.WriteNewLine(logLevel)
 		}
 	}
 	if scanner.Err() != nil {
+		writer := createWriter("error")
 		writer.WriteTextAndError("scanner error", "", scanner.Err())
 	}
 
