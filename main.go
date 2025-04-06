@@ -71,6 +71,22 @@ func main() {
 		}
 	}()
 
+	openWriter := func(writer *logWriter, additionalPrefix string) {
+		if *prefix != "" {
+			err := writer.OpenWithPrefix(*prefix + additionalPrefix)
+			if err != nil {
+				fmt.Printf("OpenWithPrefix error %s %s:", *prefix, err)
+				os.Exit(1)
+			}
+		} else {
+			err := writer.OpenAll(additionalPrefix+*filename, additionalPrefix+*infoFilename, additionalPrefix+*errorFilename, additionalPrefix+*original)
+			if err != nil {
+				fmt.Printf("OpenAll error %s %s:", *filename, err)
+				os.Exit(1)
+			}
+		}
+	}
+
 	createWriter := func(name string) *logWriter {
 		writer, ok := writers[name]
 		if ok {
@@ -78,26 +94,14 @@ func main() {
 		}
 		writer = newWriter(*hideDebug)
 		writer.bufferSize = *bufferSize
-		if *prefix != "" {
-			err := writer.OpenWithPrefix(*prefix + "_" + name)
-			if err != nil {
-				fmt.Printf("OpenWithPrefix error %s %s:", *prefix, err)
-				os.Exit(1)
-			}
-		} else {
-			err := writer.OpenAll(*filename+"_"+name, *infoFilename+"_"+name, *errorFilename+"_"+name, *original+"_"+name)
-			if err != nil {
-				fmt.Printf("OpenAll error %s %s:", *filename, err)
-				os.Exit(1)
-			}
-		}
-
+		openWriter(writer, "_"+name)
 		writers[name] = writer
 		return writer
 	}
-	/*writer := newWriter(*hideDebug)
-	writer.bufferSize = *bufferSize
-	defer writer.Close()*/
+	defaulWriter := newWriter(*hideDebug)
+	defaulWriter.bufferSize = *bufferSize
+	defer defaulWriter.Close()
+	openWriter(defaulWriter, "")
 
 	skipFieldsMap := make(map[string]struct{})
 	if *skipFields != "" {
@@ -111,13 +115,12 @@ func main() {
 	scanner.Buffer(buffer, 32*1048576)
 	prevUnmarshalError := false
 	for scanner.Scan() {
-		var writer *logWriter
+		writer := defaulWriter
 		fixture.processLine(scanner.Bytes())
 
 		var logLevel logLevel
 		linedata, err := unmarshal(scanner.Bytes())
 		if err != nil {
-			writer := createWriter("error")
 			writer.WriteOriginal(scanner.Bytes())
 			text := strings.Trim(scanner.Text(), "\r\n")
 			if prevUnmarshalError {
@@ -141,8 +144,6 @@ func main() {
 					writerNameFieldValue, _ = writerNameFieldValueIface.(string)
 				}
 				writer = createWriter(writerNameFieldValue)
-			} else {
-				writer = createWriter("")
 			}
 			writer.WriteOriginal(scanner.Bytes())
 
@@ -195,8 +196,7 @@ func main() {
 		}
 	}
 	if scanner.Err() != nil {
-		writer := createWriter("error")
-		writer.WriteTextAndError("scanner error", "", scanner.Err())
+		defaulWriter.WriteTextAndError("scanner error", "", scanner.Err())
 	}
 
 	if *fixtureFile != "" {
