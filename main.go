@@ -94,7 +94,12 @@ func main() {
 		}
 		writer = newWriter(*hideDebug)
 		writer.bufferSize = *bufferSize
-		openWriter(writer, "_"+name)
+		if name != "" {
+			openWriter(writer, "_"+name)
+		} else {
+			openWriter(writer, "")
+		}
+
 		writers[name] = writer
 		return writer
 	}
